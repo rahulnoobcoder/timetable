@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M.Tech CSE Timetable</title>
+    <title>Interactive Timetable Viewer</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -37,12 +37,12 @@
         .slot-V { background-color: #ffe4e6; color: #9f1239; } /* Rose */
         .slot-J, .slot-X { background-color: #d1d5db; color: #1f2937; } /* Gray */
         
-        .clash-cell {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-            align-items: center;
-            justify-content: center;
+        #toast-warning {
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        label.disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
         }
     </style>
 </head>
@@ -88,6 +88,12 @@
             </table>
         </div>
     </div>
+    
+    <!-- Warning Toast -->
+    <div id="toast-warning" class="fixed bottom-5 right-5 bg-yellow-400 text-yellow-900 font-bold p-4 rounded-lg shadow-xl transform translate-y-24 opacity-0">
+        Core subject, bruh. Trying to skip the essentials? Nice try.
+    </div>
+
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -139,18 +145,22 @@
             const days = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
             const times = ['8-9 AM', '9-10 AM', '10-11 AM', '11-12 PM', '12-1 PM', '2-3 PM', '3-4 PM', '4-5 PM'];
             const subjects = [...new Set(Object.values(scheduleData).flatMap(day => Object.values(day).map(d => d.subject)))].filter(Boolean).sort();
+            const coreSubjects = ['ADA', 'FOCS', 'Comp Lab'];
 
             const controlsContainer = document.getElementById('subject-controls');
             const timetableBody = document.getElementById('timetable-body');
+            const toast = document.getElementById('toast-warning');
 
             // 1. Generate Subject Checkboxes
             subjects.forEach(subject => {
                 const checkboxDiv = document.createElement('div');
                 checkboxDiv.className = 'flex items-center';
                 const subjectId = subject.replace(/[^a-zA-Z0-9]/g, '-');
+                const isCore = coreSubjects.includes(subject);
+                
                 checkboxDiv.innerHTML = `
-                    <input id="subject-${subjectId}" type="checkbox" value="${subject}" checked class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
-                    <label for="subject-${subjectId}" class="ml-2 text-sm font-medium text-gray-900">${subject}</label>
+                    <input id="subject-${subjectId}" type="checkbox" value="${subject}" ${isCore ? 'checked disabled' : 'checked'} class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 ${isCore ? 'cursor-not-allowed' : ''}">
+                    <label for="subject-${subjectId}" class="ml-2 text-sm font-medium text-gray-900 ${isCore ? 'disabled' : ''}">${subject}</label>
                 `;
                 controlsContainer.querySelector('.grid').appendChild(checkboxDiv);
             });
@@ -187,17 +197,37 @@
                     }
                 });
             }
+            
+            // 4. Warning Logic
+            let toastTimeout;
+            function showWarning() {
+                clearTimeout(toastTimeout);
+                toast.classList.remove('translate-y-24', 'opacity-0');
+                toast.classList.add('translate-y-0', 'opacity-100');
 
-            // 4. Event Listeners
+                toastTimeout = setTimeout(() => {
+                    toast.classList.add('translate-y-24', 'opacity-0');
+                    toast.classList.remove('translate-y-0', 'opacity-100');
+                }, 3000);
+            }
+
+            // 5. Event Listeners
             controlsContainer.addEventListener('change', updateTimetable);
             
+            controlsContainer.addEventListener('click', function(event) {
+                const target = event.target;
+                if ((target.tagName === 'INPUT' && target.disabled) || (target.tagName === 'LABEL' && document.getElementById(target.htmlFor)?.disabled)) {
+                    showWarning();
+                }
+            });
+            
             document.getElementById('selectAllBtn').addEventListener('click', () => {
-                document.querySelectorAll('#subject-controls input[type="checkbox"]').forEach(cb => cb.checked = true);
+                document.querySelectorAll('#subject-controls input[type="checkbox"]:not(:disabled)').forEach(cb => cb.checked = true);
                 updateTimetable();
             });
 
             document.getElementById('deselectAllBtn').addEventListener('click', () => {
-                document.querySelectorAll('#subject-controls input[type="checkbox"]').forEach(cb => cb.checked = false);
+                document.querySelectorAll('#subject-controls input[type="checkbox"]:not(:disabled)').forEach(cb => cb.checked = false);
                 updateTimetable();
             });
 
