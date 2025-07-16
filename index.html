@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Timetable Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f4f5; /* Zinc 100 */
+        }
+        .timetable-cell {
+            transition: background-color 0.3s ease, opacity 0.3s ease;
+        }
+        .timetable-cell.hidden-slot {
+            background-color: #e4e4e7; /* Zinc 200 */
+            opacity: 0.5;
+        }
+        .timetable-cell.hidden-slot .subject-tag {
+            visibility: hidden;
+        }
+        .subject-tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .slot-A { background-color: #ecfccb; color: #4d7c0f; } /* Lime */
+        .slot-C { background-color: #cffafe; color: #0e7490; } /* Cyan */
+        .slot-D { background-color: #e0e7ff; color: #3730a3; } /* Indigo */
+        .slot-E { background-color: #fae8ff; color: #86198f; } /* Fuchsia */
+        .slot-F { background-color: #ffedd5; color: #9a3412; } /* Orange */
+        .slot-G { background-color: #fef9c3; color: #854d0e; } /* Yellow */
+        .slot-V { background-color: #ffe4e6; color: #9f1239; } /* Rose */
+        .slot-J, .slot-X { background-color: #d1d5db; color: #1f2937; } /* Gray */
+        
+        .clash-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-zinc-800">Interactive Timetable</h1>
+            <p class="text-zinc-600 mt-2">Select the subjects you want to view. The timetable will update automatically.</p>
+        </header>
+
+        <!-- Subject Selection Controls -->
+        <div id="subject-controls" class="bg-white p-6 rounded-xl shadow-md mb-8">
+            <h2 class="text-xl font-bold text-zinc-700 mb-4">Filter by Subject</h2>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <!-- Checkboxes will be dynamically inserted here -->
+            </div>
+            <div class="flex gap-4 mt-6">
+                <button id="selectAllBtn" class="w-full sm:w-auto bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Select All</button>
+                <button id="deselectAllBtn" class="w-full sm:w-auto bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors">Deselect All</button>
+            </div>
+        </div>
+
+        <!-- Timetable Display -->
+        <div class="bg-white rounded-xl shadow-md overflow-x-auto">
+            <table class="w-full text-sm text-left text-zinc-500">
+                <thead class="text-xs text-zinc-700 uppercase bg-zinc-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Day/Time</th>
+                        <th scope="col" class="px-6 py-3 text-center">8-9 AM</th>
+                        <th scope="col" class="px-6 py-3 text-center">9-10 AM</th>
+                        <th scope="col" class="px-6 py-3 text-center">10-11 AM</th>
+                        <th scope="col" class="px-6 py-3 text-center">11-12 PM</th>
+                        <th scope="col" class="px-6 py-3 text-center">12-1 PM</th>
+                        <th scope="col" class="px-6 py-3 text-center">2-3 PM</th>
+                        <th scope="col" class="px-6 py-3 text-center">3-4 PM</th>
+                        <th scope="col" class="px-6 py-3 text-center">4-5 PM</th>
+                    </tr>
+                </thead>
+                <tbody id="timetable-body">
+                    <!-- Timetable rows will be dynamically inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Data derived from the provided timetable
+            const scheduleData = {
+                'MON': {
+                    '8-9': { subject: 'GIS', slot: 'A' },
+                    '9-10': { subject: 'GIS', slot: 'A' },
+                    '10-11': { subject: 'ADA', slot: 'C' },
+                    '11-12': {},
+                    '12-1': { subject: 'FOCS', slot: 'D' },
+                    '2-3': { subject: 'Comp Lab', slot: 'J' },
+                    '3-4': { subject: 'Comp Lab', slot: 'J' },
+                    '4-5': { subject: 'Comp Lab', slot: 'J' }
+                },
+                'TUE': {
+                    '10-11': { subject: 'FOCS', slot: 'D' },
+                    '11-12': { subject: 'FOCS', slot: 'D' },
+                    '12-1': { subject: 'GIS', slot: 'A' }
+                },
+                'WED': {
+                    '8-9': { subject: 'ADA', slot: 'C' },
+                    '9-10': { subject: 'ADA', slot: 'C' },
+                    '10-11': { subject: 'AI', slot: 'F' },
+                    '11-12': { subject: 'ML/AOS', slot: 'G' },
+                    '12-1': { subject: 'Blockchain/DA', slot: 'E' },
+                    '2-3': { subject: 'Comp Lab', slot: 'X' },
+                    '3-4': { subject: 'Comp Lab', slot: 'X' },
+                    '4-5': { subject: 'Comp Lab', slot: 'X' }
+                },
+                'THU': {
+                    '8-9': { subject: 'FOCS', slot: 'D' },
+                    '9-10': { subject: 'AI', slot: 'F' },
+                    '10-11': { subject: 'ADA', slot: 'C' },
+                    '11-12': { subject: 'Blockchain/DA', slot: 'E' },
+                    '12-1': { subject: 'ML/AOS', slot: 'G' },
+                    '3-4': { subject: 'OOS', slot: 'V' },
+                    '4-5': { subject: 'OOS', slot: 'V' }
+                },
+                'FRI': {
+                    '8-9': { subject: 'ML/AOS', slot: 'G' },
+                    '9-10': { subject: 'Blockchain/DA', slot: 'E' },
+                    '10-11': { subject: 'Blockchain/DA', slot: 'E' },
+                    '11-12': { subject: 'AI', slot: 'F' },
+                    '3-4': { subject: 'OOS', slot: 'V' }
+                }
+            };
+
+            const days = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+            const times = ['8-9 AM', '9-10 AM', '10-11 AM', '11-12 PM', '12-1 PM', '2-3 PM', '3-4 PM', '4-5 PM'];
+            const subjects = [...new Set(Object.values(scheduleData).flatMap(day => Object.values(day).map(d => d.subject)))].filter(Boolean).sort();
+
+            const controlsContainer = document.getElementById('subject-controls');
+            const timetableBody = document.getElementById('timetable-body');
+
+            // 1. Generate Subject Checkboxes
+            subjects.forEach(subject => {
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'flex items-center';
+                const subjectId = subject.replace(/[^a-zA-Z0-9]/g, '-');
+                checkboxDiv.innerHTML = `
+                    <input id="subject-${subjectId}" type="checkbox" value="${subject}" checked class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                    <label for="subject-${subjectId}" class="ml-2 text-sm font-medium text-gray-900">${subject}</label>
+                `;
+                controlsContainer.querySelector('.grid').appendChild(checkboxDiv);
+            });
+
+            // 2. Generate Timetable Grid
+            days.forEach(day => {
+                const row = document.createElement('tr');
+                row.className = 'bg-white border-b';
+                
+                let rowHTML = `<th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">${day}</th>`;
+                
+                times.forEach(time => {
+                    const timeKey = time.split(' ')[0];
+                    const cellData = scheduleData[day]?.[timeKey] || {};
+                    const slotClass = cellData.slot ? `slot-${cellData.slot}` : '';
+                    const subjectHTML = cellData.subject ? `<span class="subject-tag ${slotClass}">${cellData.subject}</span>` : '';
+                    
+                    rowHTML += `<td class="px-2 py-4 text-center timetable-cell" data-subject="${cellData.subject || ''}">${subjectHTML}</td>`;
+                });
+                row.innerHTML = rowHTML;
+                timetableBody.appendChild(row);
+            });
+
+            // 3. Filtering Logic
+            function updateTimetable() {
+                const selectedSubjects = Array.from(document.querySelectorAll('#subject-controls input:checked')).map(cb => cb.value);
+                
+                document.querySelectorAll('.timetable-cell').forEach(cell => {
+                    const cellSubject = cell.dataset.subject;
+                    if (cellSubject && !selectedSubjects.includes(cellSubject)) {
+                        cell.classList.add('hidden-slot');
+                    } else {
+                        cell.classList.remove('hidden-slot');
+                    }
+                });
+            }
+
+            // 4. Event Listeners
+            controlsContainer.addEventListener('change', updateTimetable);
+            
+            document.getElementById('selectAllBtn').addEventListener('click', () => {
+                document.querySelectorAll('#subject-controls input[type="checkbox"]').forEach(cb => cb.checked = true);
+                updateTimetable();
+            });
+
+            document.getElementById('deselectAllBtn').addEventListener('click', () => {
+                document.querySelectorAll('#subject-controls input[type="checkbox"]').forEach(cb => cb.checked = false);
+                updateTimetable();
+            });
+
+            // Initial render
+            updateTimetable();
+        });
+    </script>
+</body>
+</html>
